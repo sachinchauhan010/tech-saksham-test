@@ -192,10 +192,17 @@ export default function UserLoginPage() {
     setIsSendingOTP(true);
 
     try {
-      const { data } =
-        await apiClient.post('/api/login', {
-          userPhoneOrEmail,
-        });
+      const response= await fetch(`${process.env.NEXT_PUBLIC_NOTIFICATION_API_URL}/verify-otp`,{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+        },
+        body:JSON.stringify({
+          "mobile": userPhoneOrEmail,
+          "type": "OTP"
+        })
+      })
+      const data= await response.json();
 
       if (!data.success) {
         throw new Error(
@@ -267,16 +274,17 @@ export default function UserLoginPage() {
 
     try {
       // VERIFY OTP
-      const { data } =
-        await apiClient.post(
-          '/api/verify-otp',
-          {
-            email: userEmail,
-            otp: values.otp,
-            OtpType: userOtpType,
-            isForLogin: true,
-          }
-        );
+      const response= await fetch(`${process.env.NEXT_PUBLIC_NOTIFICATION_API_URL}/verify-otp`,{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+        },
+        body:JSON.stringify({
+          "mobile": userEmail,
+          "otp": values.otp
+        })
+      })
+      const data= await response.json();
 
       if (!data.success) {
         throw new Error(
