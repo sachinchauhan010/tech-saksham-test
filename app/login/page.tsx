@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { useForm } from 'react-hook-form';
+import { Mail, ArrowLeft, QrCode } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-
 import {
   Form,
   FormControl,
@@ -16,34 +18,16 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 
-import { useForm } from 'react-hook-form';
-
 import { useToast } from '@/hooks/use-toast';
-
-
-import {
-  Mail,
-  ArrowLeft,
-  QrCode,
-} from 'lucide-react';
-
-import Image from 'next/image';
-
-import {
-  useAppDispatch,
-} from '@/redux/hooks';
-
-import { getCurrentUser } from '@/services/authService';
-
+import { useAppDispatch } from '@/redux/hooks';
 import { setUser } from '@/redux/slices/authSlice';
-
+import { getCurrentUser } from '@/services/authService';
 import { OTP_TYPE } from '@/lib/enum';
-
 import apiClient from '@/lib/api-client';
-
 import ComponentWrapper from '@/components/ComponentWrapper';
-
 import { IEvent } from '@/types/interface';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface LoginFormValues {
   userPhoneOrEmail: string;
@@ -53,377 +37,312 @@ interface OTPFormValues {
   otp: string;
 }
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const RESEND_COOLDOWN_SECONDS = 120;
+const NOTIFICATION_API = process.env.NEXT_PUBLIC_NOTIFICATION_API_URL;
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function UserLoginPage() {
   const router = useRouter();
-
   const toast = useToast();
-
   const dispatch = useAppDispatch();
 
-  const [currentStep, setCurrentStep] =
-    useState<1 | 2>(1);
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
+  const [isSendingOTP, setIsSendingOTP] = useState(false);
+  const [isVerifyingOTP, setIsVerifyingOTP] = useState(false);
+  const [resolvedEmail, setResolvedEmail] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
 
-  const [isSendingOTP, setIsSendingOTP] =
-    useState(false);
+  // ─── Resend timer ───────────────────────────────────────────────────────────
 
-  const [isVerifyingOTP, setIsVerifyingOTP] =
-    useState(false);
-
-  const [userEmail, setUserEmail] =
-    useState<string>('');
-
-  const [userOtpType, setUserOtpType] =
-    useState<string>(OTP_TYPE.EMAIL_VERIFICATION);
-
-  const [resendCooldown, setResendCooldown] =
-    useState(0);
-
-  // RESEND OTP TIMER
   useEffect(() => {
-    if (resendCooldown > 0) {
-      const timer = setInterval(() => {
-        setResendCooldown((prev) => prev - 1);
-      }, 1000);
+    if (resendCooldown <= 0) return;
 
-      return () => clearInterval(timer);
-    }
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // LOGIN FORM
+  // ─── Forms ──────────────────────────────────────────────────────────────────
+
   const form = useForm<LoginFormValues>({
     mode: 'onBlur',
-    defaultValues: {
-      userPhoneOrEmail: '',
-    },
+    defaultValues: { userPhoneOrEmail: '' },
   });
 
-  // OTP FORM
   const otpForm = useForm<OTPFormValues>({
     mode: 'onChange',
-    defaultValues: {
-      otp: '',
-    },
+    defaultValues: { otp: '' },
   });
 
-  // REDIRECT TO TODAY EVENT
-  const redirectToTodayEvent = async (
-    currentUser: any
-  ) => {
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  const redirectAfterLogin = async (currentUser: any) => {
     try {
-      const { data } = await apiClient.get(
-        '/api/event'
-      );
+      const { data } = await apiClient.get('/api/event');
 
       if (!data.success) {
         router.push('/questions');
         return;
       }
 
-      const { upcomingEvents } = data.data;
+      const todayStr = new Date().toDateString();
+      const todayEvents: IEvent[] = data.data.upcomingEvents.filter(
+        (event: IEvent) =>
+          new Date(event.startDate).toDateString() === todayStr
+      );
 
-      const todayStr =
-        new Date().toDateString();
-
-      const todayEvents =
-        upcomingEvents.filter(
-          (event: IEvent) =>
-            new Date(
-              event.startDate
-            ).toDateString() === todayStr
-        );
-
-      // SUPER ADMIN
-      if (
-        currentUser.role === 'super_admin'
-      ) {
-        router.push(
-          '/admin/super-dashboard'
-        );
-
+      if (currentUser.role === 'super_admin') {
+        router.push('/admin/super-dashboard');
         return;
       }
 
-      // ADMIN
       if (currentUser.role === 'admin') {
         router.push('/admin/dashboard');
-
         return;
       }
 
-      // FIND APPLIED EVENT
-      const appliedTodayEvent =
-        todayEvents.find((event: IEvent) =>
-          currentUser?.eventApplied?.some(
-            (e: any) =>
-              e.eventCode ===
-              event.eventCode
-          )
-        );
+      const appliedTodayEvent = todayEvents.find((event) =>
+        currentUser?.eventApplied?.some(
+          (e: any) => e.eventCode === event.eventCode
+        )
+      );
 
-      // DIRECT JOIN
       if (appliedTodayEvent) {
-        router.push(
-          `/questions/${appliedTodayEvent._id}`
-        );
-
+        router.push(`/questions/${appliedTodayEvent._id}`);
         return;
       }
 
-      // MULTIPLE EVENTS
       if (todayEvents.length > 0) {
         router.push('/questions');
-
         return;
       }
 
-      // NO EVENTS
       router.push('/questions/no-event');
-    } catch (error) {
-      console.error(error);
-
+    } catch {
       router.push('/questions');
     }
   };
 
-  // SEND OTP
-  const sendOTP = async (
-    userPhoneOrEmail: string
-  ) => {
+  // ─── API calls ──────────────────────────────────────────────────────────────
+
+  const checkUserExists = async (mobile: string): Promise<boolean> => {
+    try {
+      const { data } = await apiClient.post('/check-user-exist', { mobile });
+      return data.success === true;
+    } catch {
+      return false;
+    }
+  };
+
+  const sendOTP = async (mobile: string): Promise<boolean> => {
     setIsSendingOTP(true);
 
     try {
-      const response= await fetch(`${process.env.NEXT_PUBLIC_NOTIFICATION_API_URL}/send-otp`,{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-        },
-        body:JSON.stringify({
-          "mobile": userPhoneOrEmail,
-          "type": "OTP"
-        })
-      })
-      const data= await response.json();
+      const res = await fetch(`${NOTIFICATION_API}/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile, type: 'OTP' }),
+      });
+
+      const data = await res.json();
 
       if (!data.success) {
-        throw new Error(
-          data.error ||
-            'Failed to send OTP'
-        );
+        throw new Error(data.error || 'Failed to send OTP');
       }
 
-      setUserEmail(
-        data.data?.email ||
-          userPhoneOrEmail
-      );
+      // Prefer email returned from API, fall back to the input value
+      setResolvedEmail(data.data?.email || mobile);
 
-      if (data.data?.otpType) {
-        setUserOtpType(data.data.otpType);
-      }
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
 
-      setResendCooldown(120);
+      toast.success(data.message || 'OTP sent successfully');
 
-      toast.success(
-        data.message ||
-          'OTP sent successfully'
-      );
-
-      if (
-        process.env.NODE_ENV !==
-          'production' &&
-        data.otp
-      ) {
-        toast.info(
-          `Development OTP: ${data.otp}`
-        );
+      if (process.env.NODE_ENV !== 'production' && data.otp) {
+        toast.info(`Dev OTP: ${data.otp}`);
       }
 
       return true;
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : 'Failed to send OTP'
+        error instanceof Error ? error.message : 'Failed to send OTP'
       );
-
       return false;
     } finally {
       setIsSendingOTP(false);
     }
   };
 
-  // STEP 1
-  const onFormSubmit = async (
-    values: LoginFormValues
-  ) => {
-    const sent = await sendOTP(
-      values.userPhoneOrEmail
-    );
+  const verifyOTP = async (otp: string): Promise<boolean> => {
+    setIsVerifyingOTP(true);
+
+    try {
+      const res = await fetch(`${NOTIFICATION_API}/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile: resolvedEmail, otp }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Invalid OTP');
+      }
+
+      return true;
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'OTP verification failed'
+      );
+      return false;
+    } finally {
+      setIsVerifyingOTP(false);
+    }
+  };
+
+  const saveToken = async (mobile: string): Promise<boolean> => {
+    try {
+      const { data } = await apiClient.post('/save-token', { mobile });
+      return data.success === true;
+    } catch {
+      return false;
+    }
+  };
+
+  // ─── Step handlers ──────────────────────────────────────────────────────────
+
+  const onLoginSubmit = async ({ userPhoneOrEmail }: LoginFormValues) => {
+    const exists = await checkUserExists(userPhoneOrEmail);
+
+    if (!exists) {
+      toast.error('No account found with this email or phone number');
+      return;
+    }
+
+    const sent = await sendOTP(userPhoneOrEmail);
 
     if (sent) {
       setCurrentStep(2);
     }
   };
 
-  // STEP 2
-  const onOTPSubmit = async (
-    values: OTPFormValues
-  ) => {
-    if (!userEmail) return;
+  const onOTPSubmit = async ({ otp }: OTPFormValues) => {
+    const verified = await verifyOTP(otp);
 
-    setIsVerifyingOTP(true);
+    if (!verified) return;
+
+    const tokenSaved = await saveToken(resolvedEmail);
+
+    if (!tokenSaved) {
+      toast.error('Session setup failed. Please try again.');
+      return;
+    }
 
     try {
-      // VERIFY OTP
-      const response= await fetch(`${process.env.NEXT_PUBLIC_NOTIFICATION_API_URL}/verify-otp`,{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-        },
-        body:JSON.stringify({
-          "mobile": userEmail,
-          "otp": values.otp
-        })
-      })
-      const data= await response.json();
-
-      if (!data.success) {
-        throw new Error(
-          data.error ||
-            'OTP verification failed'
-        );
-      }
-
-      toast.success(
-        'OTP verified successfully!'
-      );
-
-      // FETCH USER
-      const user =
-        await getCurrentUser();
-
-      // STORE USER
+      const user = await getCurrentUser();
       dispatch(setUser(user));
-
-      // REDIRECT
-      await redirectToTodayEvent(user);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : 'Login failed'
-      );
-    } finally {
-      setIsVerifyingOTP(false);
+      toast.success('Login successful!');
+      await redirectAfterLogin(user);
+    } catch {
+      toast.error('Failed to load user. Please try again.');
     }
   };
 
-  // STEP INDICATOR
-  const renderStepIndicator = () => (
-    <div className="mb-6 flex justify-center">
-      <div className="flex w-fit items-center justify-center gap-4 rounded-lg px-4 py-2">
-        {[
-          {
-            number: 1,
-            label: 'Enter Details',
-          },
-          {
-            number: 2,
-            label: 'Verify OTP',
-          },
-        ].map((step, index) => (
-          <div
-            key={step.number}
-            className="flex items-center"
-          >
-            <div className="flex flex-col items-center">
-              <div
-                className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-all duration-300
-                ${
-                  currentStep >= step.number
-                    ? 'bg-[#1477e6] text-white scale-105 shadow-md'
-                    : 'bg-slate-100 text-slate-400'
-                }`}
-              >
-                {step.number}
+  const handleBack = () => {
+    setCurrentStep(1);
+    setResendCooldown(0);
+    otpForm.reset();
+  };
+
+  // ─── UI helpers ─────────────────────────────────────────────────────────────
+
+  const formatCooldown = (seconds: number) =>
+    `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
+
+  const renderStepIndicator = () => {
+    const steps = [
+      { number: 1, label: 'Enter Details' },
+      { number: 2, label: 'Verify OTP' },
+    ];
+
+    return (
+      <div className="mb-6 flex justify-center">
+        <div className="flex w-fit items-center justify-center gap-4 rounded-lg px-4 py-2">
+          {steps.map((step, index) => (
+            <div key={step.number} className="flex items-center">
+              <div className="flex flex-col items-center">
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-all duration-300
+                    ${
+                      currentStep >= step.number
+                        ? 'scale-105 bg-[#1477e6] text-white shadow-md'
+                        : 'bg-slate-100 text-slate-400'
+                    }`}
+                >
+                  {step.number}
+                </div>
+
+                <span
+                  className={`mt-1 text-[11px] whitespace-nowrap transition-all duration-300
+                    ${
+                      currentStep >= step.number
+                        ? 'font-medium text-[#1477e6]'
+                        : 'text-slate-400'
+                    }`}
+                >
+                  {step.label}
+                </span>
               </div>
 
-              <span
-                className={`mt-1 text-[11px] whitespace-nowrap transition-all duration-300
-                ${
-                  currentStep >= step.number
-                    ? 'font-medium text-[#1477e6]'
-                    : 'text-slate-400'
-                }`}
-              >
-                {step.label}
-              </span>
+              {index < steps.length - 1 && (
+                <div
+                  className={`mx-2 mb-5 h-[2px] w-12 transition-all duration-300
+                    ${currentStep > step.number ? 'bg-[#1477e6]' : 'bg-slate-300'}`}
+                />
+              )}
             </div>
-
-            {index < 1 && (
-              <div
-                className={`mx-2 mb-5 h-[2px] w-12 transition-all duration-300
-                ${
-                  currentStep > step.number
-                    ? 'bg-[#1477e6]'
-                    : 'bg-slate-300'
-                }`}
-              />
-            )}
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
-  // LOGIN FORM UI
-  const renderEmailForm = () => (
+  const renderLoginForm = () => (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(
-          onFormSubmit
-        )}
-        className="space-y-5"
-      >
+      <form onSubmit={form.handleSubmit(onLoginSubmit)} className="space-y-5">
         <div className="mb-2 flex items-center gap-3">
           <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#245cf0] to-[#0f97cb] text-white">
             <Mail className="h-4 w-4" />
           </div>
 
-          <h2 className="text-2xl font-bold text-[#0d83c0]">
-            Login
-          </h2>
+          <h2 className="text-2xl font-bold text-[#0d83c0]">Login</h2>
         </div>
 
         <FormField
           control={form.control}
           name="userPhoneOrEmail"
           rules={{
-            required:
-              'Email or Phone is required',
+            required: 'Email or phone number is required',
             validate: (value) => {
-              const emailRegex =
-                /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-              const phoneRegex =
-                /^[0-9]{10}$/;
-
-              if (
-                !emailRegex.test(value) &&
-                !phoneRegex.test(value)
-              ) {
-                return 'Please enter a valid email or 10-digit phone number';
-              }
-
-              return true;
+              const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+              const isPhone = /^[6-9]\d{9}$/.test(value);
+              return (
+                isEmail || isPhone ||
+                'Enter a valid email or 10-digit mobile number'
+              );
             },
           }}
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-base font-semibold text-slate-700">
                 Email ID or Phone Number{' '}
-                <span className="text-red-500">
-                  *
-                </span>
+                <span className="text-red-500">*</span>
               </FormLabel>
 
               <FormControl>
@@ -448,15 +367,12 @@ export default function UserLoginPage() {
           disabled={isSendingOTP}
           className="h-12 w-full rounded-2xl bg-gradient-to-r from-[#245cf0] to-[#0f97cb] text-lg font-semibold text-white hover:from-[#1748cc] hover:to-[#0d83ae]"
         >
-          {isSendingOTP
-            ? 'Sending OTP...'
-            : 'Continue'}
+          {isSendingOTP ? 'Sending OTP...' : 'Continue'}
         </Button>
       </form>
     </Form>
   );
 
-  // OTP FORM UI
   const renderOTPForm = () => (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
@@ -464,34 +380,24 @@ export default function UserLoginPage() {
           <Mail className="h-6 w-6 text-[#1477e6]" />
         </div>
 
-        <h2 className="text-2xl font-bold text-[#0d83c0]">
-          Verify OTP
-        </h2>
+        <h2 className="text-2xl font-bold text-[#0d83c0]">Verify OTP</h2>
 
         <p className="text-slate-500">
           Enter the 6-digit code sent to{' '}
-          <strong className="text-slate-700">
-            {userEmail}
-          </strong>
+          <strong className="text-slate-700">{resolvedEmail}</strong>
         </p>
       </div>
 
       <Form {...otpForm}>
-        <form
-          onSubmit={otpForm.handleSubmit(
-            onOTPSubmit
-          )}
-          className="space-y-4"
-        >
+        <form onSubmit={otpForm.handleSubmit(onOTPSubmit)} className="space-y-4">
           <FormField
             control={otpForm.control}
             name="otp"
             rules={{
               required: 'OTP is required',
               pattern: {
-                value: /^[0-9]{6}$/,
-                message:
-                  'Please enter a valid 6-digit OTP',
+                value: /^\d{6}$/,
+                message: 'Enter a valid 6-digit OTP',
               },
             }}
             render={({ field }) => (
@@ -508,6 +414,10 @@ export default function UserLoginPage() {
                     maxLength={6}
                     className="h-14 rounded-2xl border-blue-200 text-center text-2xl tracking-[0.5em] focus-visible:ring-blue-400"
                     {...field}
+                    onChange={(e) => {
+                      // Strip non-digits before passing to RHF
+                      field.onChange(e.target.value.replace(/\D/g, ''));
+                    }}
                   />
                 </FormControl>
 
@@ -520,13 +430,7 @@ export default function UserLoginPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                setCurrentStep(1);
-
-                setResendCooldown(0);
-
-                otpForm.reset();
-              }}
+              onClick={handleBack}
               className="h-12 flex-1 rounded-2xl border-blue-200 hover:bg-blue-50"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -538,9 +442,7 @@ export default function UserLoginPage() {
               disabled={isVerifyingOTP}
               className="h-12 flex-1 rounded-2xl bg-gradient-to-r from-[#245cf0] to-[#0f97cb] text-white hover:from-[#1748cc] hover:to-[#0d83ae]"
             >
-              {isVerifyingOTP
-                ? 'Verifying...'
-                : 'Login'}
+              {isVerifyingOTP ? 'Verifying...' : 'Login'}
             </Button>
           </div>
         </form>
@@ -550,23 +452,14 @@ export default function UserLoginPage() {
         <Button
           type="button"
           variant="link"
-          onClick={() =>
-            sendOTP(userEmail)
-          }
-          disabled={
-            isSendingOTP ||
-            resendCooldown > 0
-          }
+          onClick={() => sendOTP(resolvedEmail)}
+          disabled={isSendingOTP || resendCooldown > 0}
           className="text-sm text-[#1477e6] hover:text-[#0d83c0] disabled:text-slate-400"
         >
           {isSendingOTP
             ? 'Resending...'
             : resendCooldown > 0
-            ? `Resend OTP in ${Math.floor(
-                resendCooldown / 60
-              )}:${String(
-                resendCooldown % 60
-              ).padStart(2, '0')}`
+            ? `Resend OTP in ${formatCooldown(resendCooldown)}`
             : "Didn't receive the code? Resend"}
         </Button>
       </div>
@@ -594,21 +487,14 @@ export default function UserLoginPage() {
 
             {renderStepIndicator()}
 
-            {currentStep === 1 &&
-              renderEmailForm()}
-
-            {currentStep === 2 &&
-              renderOTPForm()}
+            {currentStep === 1 && renderLoginForm()}
+            {currentStep === 2 && renderOTPForm()}
 
             <div className="space-y-3 border-t border-blue-100 pt-4 text-center text-sm text-slate-500">
-              <p>
-                <span className="inline-flex items-center gap-2">
-                  <QrCode className="h-4 w-4 text-[#4c84ff] md:h-5 md:w-5" />
-
-                  <span className="font-medium text-gray-900">
-                    Or scan your ID card QR
-                    code to login
-                  </span>
+              <p className="inline-flex items-center gap-2">
+                <QrCode className="h-4 w-4 text-[#4c84ff] md:h-5 md:w-5" />
+                <span className="font-medium text-gray-900">
+                  Or scan your ID card QR code to login
                 </span>
               </p>
             </div>
