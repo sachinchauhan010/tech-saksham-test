@@ -1,0 +1,58 @@
+[
+  {
+    "_id": "1",
+    "eventCode": "TECH2024",
+    "title": "Tech Summit 2024",
+    "slug": "tech-summit-2024",
+    "description": "Annual technology conference featuring the latest innovations in AI, cloud computing, and software development.",
+    "shortDescription": "Join us for the premier tech event of the year.",
+    "category": "Technology",
+    "bannerImage": "/images/tech-summit-banner.jpg",
+    "gallery": ["/images/gallery1.jpg", "/images/gallery2.jpg"],
+    "startDate": "2024-12-15T09:00:00Z",
+    "endDate": "2024-12-15T18:00:00Z",
+    "registrationOpenDate": "2024-10-01T00:00:00Z",
+    "registrationCloseDate": "2024-12-10T23:59:59Z",
+    "format": "In-Person",
+    "location": {
+      "venueName": "Tech Convention Center",
+      "address": "123 Innovation Drive",
+      "city": "San Francisco",
+      "mapLink": "https://maps.google.com/?q=Tech+Convention+Center"
+    },
+    "organizer": "user123",
+    "speakers": [
+      {
+        "_id": "speaker1",
+        "name": "Dr. Jane Smith",
+        "bio": "AI Research Expert",
+        "photo": "/images/speakers/jane-smith.jpg"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "session1",
+        "title": "Introduction to Machine Learning",
+        "description": "Learn the basics of ML and its applications",
+        "startTime": "2024-12-15T10:00:00Z",
+        "endTime": "2024-12-15T11:30:00Z",
+        "location": {
+          "room": "Hall A",
+          "venue": "Tech Convention Center"
+        },
+        "speakers": [
+          {
+            "name": "Dr. Jane Smith",
+            "bio": "AI Research Expert",
+            "photo": "/images/speakers/jane-smith.jpg"
+          }
+        ],
+        "tags": ["AI", "ML", "Beginner"]
+      }
+    ],
+    "status": "Upcoming",
+    "tags": ["technology", "AI", "innovation"],
+    "isIdCardIssue": true,
+    "isCertificateIssue": true
+  }
+]

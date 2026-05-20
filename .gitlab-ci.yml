@@ -1,0 +1,58 @@
+stages:
+  - lint
+  - format
+  - build
+
+default:
+  image: 10.24.252.21:5050/nicsi-team/devops-images/node-app:latest
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+
+before_script:
+  - npm ci
+
+lint:
+  stage: lint
+  script:
+     - npm run lint
+prettier:
+  stage: format
+  script:
+     - npx prettier --check .
+
+# BUILD ONLY ON DEVELOP (STATIC EXPORT)
+build_develop:
+  stage: build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+  script:
+    - npm run build
+    - find out -name "*.map" -type f -delete
+    - rm -rf out/cache || true
+    - tar -czf out.tar.gz out
+    - ls -lh out.tar.gz
+  artifacts:
+    name: "frontend-dev-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - out/
+    expire_in: 7 days
+
+build:
+  stage: build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  script:
+    - npm run build
+
+    - find out -name "*.map" -type f -delete
+    - rm -rf out/cache || true
+    - tar -czf out.tar.gz out
+    - ls -lh out.tar.gz
+  artifacts:
+    name: "frontend-uat-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - out/
+    expire_in: 7 days

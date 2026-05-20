@@ -1,0 +1,130 @@
+{
+  "title": "TechSaksham Annual Conference 2024",
+  "slug": "techsaksham-annual-conference-2024",
+  "description": "Join us for the biggest TechSaksham event of the year! This comprehensive conference brings together industry leaders, innovators, and tech enthusiasts for three days of learning, networking, and innovation. Explore cutting-edge technologies, attend hands-on workshops, and connect with professionals from around the world.",
+  "shortDescription": "Premier tech conference featuring keynotes, workshops, and networking opportunities.",
+  "category": "conference",
+  "bannerImage": "https://example.com/images/techsaksham-conference-2024-banner.jpg",
+  "gallery": [
+    "https://example.com/images/conference-hall-1.jpg",
+    "https://example.com/images/conference-hall-2.jpg",
+    "https://example.com/images/past-speakers.jpg"
+  ],
+  "startDate": "2024-06-15T09:00:00.000Z",
+  "endDate": "2024-06-17T18:00:00.000Z",
+  "registrationOpenDate": "2024-03-01T00:00:00.000Z",
+  "registrationCloseDate": "2024-06-10T23:59:59.000Z",
+  "format": "in-person",
+  "location": {
+    "venueName": "TechSaksham Convention Center",
+    "address": "123 Innovation Boulevard, Tech Park",
+    "city": "Bangalore",
+    "mapLink": "https://maps.google.com/?q=TechSaksham+Convention+Center+Bangalore"
+  },
+  "organizer": "60d5ecb74b24b1234567890a",
+  "speakers": [
+    {
+      "name": "Dr. Rajesh Kumar",
+      "bio": "Chief Technology Officer at InnovateTech with 15+ years in AI and machine learning. Author of bestselling book 'AI Revolution'.",
+      "photo": "https://example.com/speakers/rajesh-kumar.jpg"
+    },
+    {
+      "name": "Sarah Johnson",
+      "bio": "VP of Engineering at CloudScale, expert in distributed systems and cloud architecture. TEDx speaker on tech leadership.",
+      "photo": "https://example.com/speakers/sarah-johnson.jpg"
+    },
+    {
+      "name": "Prof. Amit Patel",
+      "bio": "Computer Science professor at MIT, specializing in cybersecurity and blockchain technology. Research advisor to Fortune 500 companies.",
+      "photo": "https://example.com/speakers/amit-patel.jpg"
+    }
+  ],
+  "sessions": [
+    {
+      "title": "Opening Keynote: The Future of AI",
+      "description": "Explore the latest trends and future directions in artificial intelligence and machine learning.",
+      "startTime": "2024-06-15T09:00:00.000Z",
+      "endTime": "2024-06-15T10:30:00.000Z",
+      "location": {
+        "room": "Main Auditorium",
+        "venue": "TechSaksham Convention Center"
+      },
+      "speakers": [
+        {
+          "name": "Dr. Rajesh Kumar",
+          "bio": "Chief Technology Officer at InnovateTech with 15+ years in AI and machine learning.",
+          "photo": "https://example.com/speakers/rajesh-kumar.jpg"
+        }
+      ],
+      "tags": ["AI", "keynote", "future-tech"]
+    },
+    {
+      "title": "Cloud Architecture Workshop",
+      "description": "Hands-on workshop designing scalable cloud architectures using modern best practices.",
+      "startTime": "2024-06-15T11:00:00.000Z",
+      "endTime": "2024-06-15T13:00:00.000Z",
+      "location": {
+        "room": "Workshop Room A",
+        "venue": "TechSaksham Convention Center"
+      },
+      "speakers": [
+        {
+          "name": "Sarah Johnson",
+          "bio": "VP of Engineering at CloudScale, expert in distributed systems and cloud architecture.",
+          "photo": "https://example.com/speakers/sarah-johnson.jpg"
+        }
+      ],
+      "tags": ["cloud", "workshop", "architecture"]
+    },
+    {
+      "title": "Cybersecurity in Modern Applications",
+      "description": "Learn about the latest cybersecurity threats and protection strategies for modern applications.",
+      "startTime": "2024-06-15T14:00:00.000Z",
+      "endTime": "2024-06-15T15:30:00.000Z",
+      "location": {
+        "room": "Conference Hall B",
+        "venue": "TechSaksham Convention Center"
+      },
+      "speakers": [
+        {
+          "name": "Prof. Amit Patel",
+          "bio": "Computer Science professor at MIT, specializing in cybersecurity and blockchain technology.",
+          "photo": "https://example.com/speakers/amit-patel.jpg"
+        }
+      ],
+      "tags": ["security", "cybersecurity", "applications"]
+    },
+    {
+      "title": "Panel Discussion: Tech Leadership",
+      "description": "Industry leaders discuss challenges and opportunities in tech leadership and team management.",
+      "startTime": "2024-06-15T16:00:00.000Z",
+      "endTime": "2024-06-15T17:30:00.000Z",
+      "location": {
+        "room": "Main Auditorium",
+        "venue": "TechSaksham Convention Center"
+      },
+      "speakers": [
+        {
+          "name": "Dr. Rajesh Kumar",
+          "bio": "Chief Technology Officer at InnovateTech.",
+          "photo": "https://example.com/speakers/rajesh-kumar.jpg"
+        },
+        {
+          "name": "Sarah Johnson",
+          "bio": "VP of Engineering at CloudScale.",
+          "photo": "https://example.com/speakers/sarah-johnson.jpg"
+        },
+        {
+          "name": "Prof. Amit Patel",
+          "bio": "Computer Science professor at MIT.",
+          "photo": "https://example.com/speakers/amit-patel.jpg"
+        }
+      ],
+      "tags": ["leadership", "panel", "management"]
+    }
+  ],
+  "status": "published",
+  "tags": ["technology", "innovation", "networking", "AI", "cloud", "cybersecurity"],
+  "isIdCardIssue": true,
+  "isCertificateIssue": true
+}
