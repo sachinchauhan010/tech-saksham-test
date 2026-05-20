@@ -192,7 +192,7 @@ export default function UserLoginPage() {
     setIsSendingOTP(true);
 
     try {
-      const response= await fetch(`${process.env.NEXT_PUBLIC_NOTIFICATION_API_URL}/verify-otp`,{
+      const response= await fetch(`${process.env.NEXT_PUBLIC_NOTIFICATION_API_URL}/send-otp`,{
         method:'POST',
         headers:{
           'Content-Type':'application/json',
