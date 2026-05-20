@@ -41,6 +41,14 @@ import apiClient from '@/lib/api-client';
 
 import { useAppDispatch } from '@/redux/hooks';
 import { setUser } from '@/redux/slices/authSlice';
+import { getCurrentUser } from '@/services/authService';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const RESEND_COOLDOWN_SECONDS = 120;
+const NOTIFICATION_API = process.env.NEXT_PUBLIC_NOTIFICATION_API_URL;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface RegistrationFormProps {
   isForAdmin?: boolean;
@@ -67,27 +75,25 @@ export default function RegistrationForm({
   const [isFetchingUser, setIsFetchingUser] = useState(false);
 
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
-
   const [formData, setFormData] = useState<IRegisterationForm | null>(null);
-
   const [isUserExist, setIsUserExist] = useState(false);
-
   const [existingUser, setExistingUser] = useState<any>(null);
-
   const [resendCooldown, setResendCooldown] = useState(0);
 
-  // RESEND OTP TIMER
-  useEffect(() => {
-    if (resendCooldown > 0) {
-      const timer = setInterval(() => {
-        setResendCooldown((prev) => prev - 1);
-      }, 1000);
+  // ─── Resend timer ───────────────────────────────────────────────────────────
 
-      return () => clearInterval(timer);
-    }
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // REGISTRATION FORM
+  // ─── Forms ──────────────────────────────────────────────────────────────────
+
   const form = useForm<IRegisterationForm>({
     mode: 'onBlur',
     defaultValues: {
@@ -98,50 +104,80 @@ export default function RegistrationForm({
     },
   });
 
-  // OTP FORM
   const otpForm = useForm<IOTPForm>({
     mode: 'onChange',
-    defaultValues: {
-      otp: '',
-    },
+    defaultValues: { otp: '' },
   });
 
-  // FETCH TODAY EVENTS
-  const fetchEvents = async () => {
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  /**
+   * THE FIX:
+   * Always fetch the latest user from the server after registration/login
+   * before doing any redirect. The Redux store may have a stale user object
+   * that doesn't include the newly added eventApplied entry, which causes
+   * the access check in QuestionsPanelPage to wrongly block the user.
+   */
+  const syncUserAndRedirect = async () => {
     try {
+      const freshUser = await getCurrentUser();
+      dispatch(setUser(freshUser));
+      await redirectAfterAuth(freshUser);
+    } catch {
+      toast.error('Failed to load user session. Please refresh.');
+    }
+  };
+
+  const redirectAfterAuth = async (currentUser: any) => {
+    try {
+      // If registering for a specific event, go there directly —
+      // no need to check today's events list
+      if (eventId) {
+        router.push(`/questions/${eventId}`);
+        return;
+      }
+
       const { data } = await apiClient.get('/api/event');
 
-      if (data.success) {
-        const { upcomingEvents } = data.data;
+      if (!data.success) {
+        router.push('/questions');
+        return;
+      }
 
-        const todayStr = new Date().toDateString();
+      const { upcomingEvents } = data.data;
+      const todayStr = new Date().toDateString();
 
-        const todayList = upcomingEvents.filter(
-          (event: IEvent) =>
-            new Date(event.startDate).toDateString() === todayStr
+      const todayList: IEvent[] = upcomingEvents.filter(
+        (event: IEvent) =>
+          new Date(event.startDate).toDateString() === todayStr
+      );
+
+      if (todayList.length === 1) {
+        const hasApplied = currentUser?.eventApplied?.some(
+          (e: any) => e.eventCode === todayList[0].eventCode
         );
 
-        if (todayList.length === 1) {
+        if (hasApplied) {
           router.push(`/questions/${todayList[0]._id}`);
           return;
         }
-
-        if (todayList.length > 1) {
-          router.push('/questions');
-          return;
-        }
-
-        toast.info('No live events today');
-        router.push('/questions');
       }
-    } catch (error) {
-      console.error(error);
+
+      if (todayList.length > 1) {
+        router.push('/questions');
+        return;
+      }
+
+      toast.info('No live events today');
+      router.push('/questions');
+    } catch {
       toast.error('Failed to load events');
       router.push('/questions');
     }
   };
 
-  // FETCH EXISTING USER
+  // ─── API calls ──────────────────────────────────────────────────────────────
+
   const fetchUserDetails = async ({
     email,
     phone,
@@ -149,11 +185,11 @@ export default function RegistrationForm({
     email?: string;
     phone?: string;
   }) => {
+    if (!email && !phone) return;
+
+    setIsFetchingUser(true);
+
     try {
-      if (!email && !phone) return;
-
-      setIsFetchingUser(true);
-
       const query = new URLSearchParams();
       if (email) query.append('email', email);
       if (phone) query.append('phone', phone);
@@ -175,7 +211,7 @@ export default function RegistrationForm({
 
         toast.success('User details auto-filled');
       }
-    } catch (error) {
+    } catch {
       setIsUserExist(false);
       setExistingUser(null);
     } finally {
@@ -183,36 +219,27 @@ export default function RegistrationForm({
     }
   };
 
-  // SEND OTP
-  const sendOTP = async (email: string) => {
+  const sendOTP = async (phone: string): Promise<boolean> => {
     setIsSendingOTP(true);
 
     try {
+      const res = await fetch(`${NOTIFICATION_API}/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile: phone, type: 'OTP' }),
+      });
 
-      const response= await fetch(`${process.env.NEXT_PUBLIC_NOTIFICATION_API_URL}/send-otp`,{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          
-        },
-        body:JSON.stringify({
-          "mobile": form.getValues('phone'),
-          "type": "OTP"
-        })
-      })
-
-      const data= await response.json();
+      const data = await res.json();
 
       if (!data.success) {
         throw new Error(data.error || 'Failed to send OTP');
       }
 
-      setResendCooldown(120);
-
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
       toast.success(data.message || 'OTP sent successfully');
 
       if (process.env.NODE_ENV !== 'production' && data.otp) {
-        toast.info(`Development OTP: ${data.otp}`);
+        toast.info(`Dev OTP: ${data.otp}`);
       }
 
       return true;
@@ -226,8 +253,7 @@ export default function RegistrationForm({
     }
   };
 
-  // REGISTER USER
-  const registerUser = async (values: IRegisterationForm) => {
+  const registerUser = async (values: IRegisterationForm): Promise<any> => {
     setIsLoading(true);
 
     try {
@@ -243,8 +269,6 @@ export default function RegistrationForm({
         throw new Error(data.error || 'Registration failed');
       }
 
-      dispatch(setUser(data.data || data));
-
       return data.data || data;
     } catch (error) {
       toast.error(
@@ -256,79 +280,60 @@ export default function RegistrationForm({
     }
   };
 
-  // STEP 1 SUBMIT
+  // ─── Step handlers ──────────────────────────────────────────────────────────
+
   const onFormSubmit = async (values: IRegisterationForm) => {
     setFormData(values);
 
     if (isForAdmin) {
       const registeredUser = await registerUser(values);
-
       if (registeredUser && onSuccess) {
         onSuccess(registeredUser._id);
       }
-
       return;
     }
 
-    const sent = await sendOTP(values.email);
-
-    if (sent) {
-      setCurrentStep(2);
-    }
+    const sent = await sendOTP(values.phone);
+    if (sent) setCurrentStep(2);
   };
 
-  // STEP 2 SUBMIT
   const onOTPSubmit = async (values: IOTPForm) => {
     if (!formData) return;
 
     setIsVerifyingOTP(true);
 
     try {
-      // const { data: verifyData } = await apiClient.post('/api/verify-otp', {
-      //   email: formData.email,
-      //   otp: values.otp,
-      //   OtpType: OTP_TYPE.PHONE_NUMBER_VERIFICATION,
-      //   preExistingUser: isUserExist,
-      //   isForLogin: false,
-      // });
+      // 1. Verify OTP
+      const res = await fetch(`${NOTIFICATION_API}/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mobile: formData.phone,
+          otp: values.otp,
+        }),
+      });
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_NOTIFICATION_API_URL}/verify-otp`,{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-        },
-        body:JSON.stringify({
-          "mobile": formData.phone,
-          "otp": values.otp,
-        })
-      })
-
-      const verifyData = await response.json()
+      const verifyData = await res.json();
 
       if (!verifyData.success) {
         throw new Error(verifyData.error || 'OTP verification failed');
       }
 
-      let finalUser;
-
+      // 2. Register new user or link existing user to the event
       if (isUserExist && existingUser) {
         if (eventId) {
-          await registerUser(formData);
+          const registered = await registerUser(formData);
+          if (!registered) throw new Error('Failed to register for event');
         }
-
-        finalUser = existingUser;
-        dispatch(setUser(existingUser));
       } else {
-        finalUser = await registerUser(formData);
+        const newUser = await registerUser(formData);
+        if (!newUser) throw new Error('Registration failed');
       }
 
-      if (!finalUser) {
-        throw new Error('Authentication failed');
-      }
+      toast.success('Registration successful!');
 
-      toast.success('Login successful!');
-
-      await fetchEvents();
+      // 3. KEY FIX: fetch the fresh user from DB → update Redux → then redirect.
+      await syncUserAndRedirect();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Verification failed'
@@ -338,7 +343,8 @@ export default function RegistrationForm({
     }
   };
 
-  // STEP INDICATOR
+  // ─── Render ─────────────────────────────────────────────────────────────────
+
   const renderStepIndicator = () => {
     const steps = [
       { number: 1, label: 'Personal Details' },
@@ -353,22 +359,22 @@ export default function RegistrationForm({
               <div className="flex flex-col items-center">
                 <div
                   className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-all duration-300
-                  ${
-                    currentStep >= step.number
-                      ? 'bg-[#1477e6] text-white shadow-md'
-                      : 'bg-slate-100 text-slate-400'
-                  }`}
+                    ${
+                      currentStep >= step.number
+                        ? 'bg-[#1477e6] text-white shadow-md'
+                        : 'bg-slate-100 text-slate-400'
+                    }`}
                 >
                   {step.number}
                 </div>
 
                 <span
                   className={`mt-1 text-[11px]
-                  ${
-                    currentStep >= step.number
-                      ? 'font-medium text-[#1477e6]'
-                      : 'text-slate-400'
-                  }`}
+                    ${
+                      currentStep >= step.number
+                        ? 'font-medium text-[#1477e6]'
+                        : 'text-slate-400'
+                    }`}
                 >
                   {step.label}
                 </span>
@@ -377,7 +383,7 @@ export default function RegistrationForm({
               {index < steps.length - 1 && (
                 <div
                   className={`mx-2 mb-5 h-[2px] w-12
-                  ${currentStep > step.number ? 'bg-[#1477e6]' : 'bg-slate-300'}`}
+                    ${currentStep > step.number ? 'bg-[#1477e6]' : 'bg-slate-300'}`}
                 />
               )}
             </div>
@@ -387,21 +393,14 @@ export default function RegistrationForm({
     );
   };
 
-  // PERSONAL DETAILS FORM
   const renderPersonalDetailsForm = () => (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onFormSubmit)}
-        className="space-y-4"
-      >
+      <form onSubmit={form.handleSubmit(onFormSubmit)} className="space-y-4">
         <div className="mb-2 flex items-center gap-3">
           <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#245cf0] to-[#0f97cb] text-white">
             <User className="h-4 w-4" />
           </div>
-
-          <h2 className="text-3xl font-bold text-[#0d83c0]">
-            Personal Details
-          </h2>
+          <h2 className="text-3xl font-bold text-[#0d83c0]">Personal Details</h2>
         </div>
 
         {/* EMAIL */}
@@ -418,11 +417,9 @@ export default function RegistrationForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Email</FormLabel>
-
               <FormControl>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6aa8ff]" />
-
                   <Input
                     type="email"
                     placeholder="your.email@example.com"
@@ -435,7 +432,6 @@ export default function RegistrationForm({
                   />
                 </div>
               </FormControl>
-
               <FormMessage />
             </FormItem>
           )}
@@ -449,25 +445,15 @@ export default function RegistrationForm({
             required: 'Phone number is required',
             pattern: {
               value: /^[6-9]\d{9}$/,
-              message: 'phone number should start from 6 to 9 and must be 10 digits',
-            },
-            minLength: {
-              value: 10,
-              message: 'Phone number must be exactly 10 digits',
-            },
-            maxLength: {
-              value: 10,
-              message: 'Phone number must be exactly 10 digits',
+              message: 'Enter a valid 10-digit Indian mobile number',
             },
           }}
           render={({ field }) => (
             <FormItem>
               <FormLabel>Phone Number</FormLabel>
-
               <FormControl>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6aa8ff]" />
-
                   <Input
                     type="tel"
                     maxLength={10}
@@ -475,9 +461,7 @@ export default function RegistrationForm({
                     className="h-12 rounded-2xl pl-10"
                     {...field}
                     onChange={(e) => {
-                      // Allow only digits
-                      const digits = e.target.value.replace(/\D/g, '');
-                      field.onChange(digits);
+                      field.onChange(e.target.value.replace(/\D/g, ''));
                     }}
                     onBlur={(e) => {
                       field.onBlur();
@@ -488,7 +472,6 @@ export default function RegistrationForm({
                   />
                 </div>
               </FormControl>
-
               <FormMessage />
             </FormItem>
           )}
@@ -500,25 +483,16 @@ export default function RegistrationForm({
           name="name"
           rules={{
             required: 'Full name is required',
-            minLength: {
-              value: 2,
-              message: 'Name must be at least 2 characters',
-            },
-            maxLength: {
-              value: 100,
-              message: 'Name must not exceed 100 characters',
-            },
-            validate: (value) =>
-              value.trim().length >= 2 || 'Name cannot be only spaces',
+            minLength: { value: 2, message: 'Name must be at least 2 characters' },
+            maxLength: { value: 100, message: 'Name must not exceed 100 characters' },
+            validate: (v) => v.trim().length >= 2 || 'Name cannot be only spaces',
           }}
           render={({ field }) => (
             <FormItem>
               <FormLabel>Full Name</FormLabel>
-
               <FormControl>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6aa8ff]" />
-
                   <Input
                     placeholder="Enter your full name"
                     className="h-12 rounded-2xl pl-10"
@@ -526,7 +500,6 @@ export default function RegistrationForm({
                   />
                 </div>
               </FormControl>
-
               <FormMessage />
             </FormItem>
           )}
@@ -538,25 +511,16 @@ export default function RegistrationForm({
           name="department"
           rules={{
             required: 'Ministry / Department / Organization is required',
-            minLength: {
-              value: 2,
-              message: 'Department must be at least 2 characters',
-            },
-            maxLength: {
-              value: 150,
-              message: 'Department must not exceed 150 characters',
-            },
-            validate: (value) =>
-              value.trim().length >= 2 || 'Department cannot be only spaces',
+            minLength: { value: 2, message: 'Department must be at least 2 characters' },
+            maxLength: { value: 150, message: 'Department must not exceed 150 characters' },
+            validate: (v) => v.trim().length >= 2 || 'Department cannot be only spaces',
           }}
           render={({ field }) => (
             <FormItem>
               <FormLabel>Ministry / Department / Organization</FormLabel>
-
               <FormControl>
                 <div className="relative">
                   <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6aa8ff]" />
-
                   <Input
                     placeholder="Enter your organization"
                     className="h-12 rounded-2xl pl-10"
@@ -564,7 +528,6 @@ export default function RegistrationForm({
                   />
                 </div>
               </FormControl>
-
               <FormMessage />
             </FormItem>
           )}
@@ -573,11 +536,7 @@ export default function RegistrationForm({
         <div className="flex gap-3">
           {showNavigation && (
             <Link href="/" className="flex-1">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 w-full rounded-2xl"
-              >
+              <Button type="button" variant="outline" className="h-12 w-full rounded-2xl">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
               </Button>
@@ -606,29 +565,20 @@ export default function RegistrationForm({
     </Form>
   );
 
-  // OTP FORM
   const renderOTPVerification = () => (
     <Form {...otpForm}>
-      <form
-        onSubmit={otpForm.handleSubmit(onOTPSubmit)}
-        className="space-y-4"
-      >
+      <form onSubmit={otpForm.handleSubmit(onOTPSubmit)} className="space-y-4">
         <div className="mb-2 flex items-center gap-3">
           <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#245cf0] to-[#0f97cb] text-white">
             <Mail className="h-4 w-4" />
           </div>
-
-          <h2 className="text-3xl font-bold text-[#0d83c0]">
-            OTP Verification
-          </h2>
+          <h2 className="text-3xl font-bold text-[#0d83c0]">OTP Verification</h2>
         </div>
 
         <div className="mb-6 text-center">
           <p className="text-slate-600">
-            We've sent OTP to{' '}
-            <span className="font-semibold text-blue-600">
-              {formData?.email}
-            </span>
+            We've sent an OTP to{' '}
+            <span className="font-semibold text-blue-600">{formData?.phone}</span>
           </p>
         </div>
 
@@ -637,23 +587,14 @@ export default function RegistrationForm({
           name="otp"
           rules={{
             required: 'OTP is required',
-            minLength: {
-              value: 6,
-              message: 'OTP must be exactly 6 digits',
-            },
-            maxLength: {
-              value: 6,
-              message: 'OTP must be exactly 6 digits',
-            },
             pattern: {
               value: /^\d{6}$/,
-              message: 'OTP must contain only digits',
+              message: 'OTP must be exactly 6 digits',
             },
           }}
           render={({ field }) => (
             <FormItem>
               <FormLabel>Enter OTP</FormLabel>
-
               <FormControl>
                 <Input
                   type="text"
@@ -663,13 +604,10 @@ export default function RegistrationForm({
                   className="h-12 rounded-2xl text-center text-lg font-mono"
                   {...field}
                   onChange={(e) => {
-                    // Allow only digits
-                    const digits = e.target.value.replace(/\D/g, '');
-                    field.onChange(digits);
+                    field.onChange(e.target.value.replace(/\D/g, ''));
                   }}
                 />
               </FormControl>
-
               <FormMessage />
             </FormItem>
           )}
@@ -679,7 +617,7 @@ export default function RegistrationForm({
           <Button
             type="button"
             variant="link"
-            onClick={() => sendOTP(formData?.email || '')}
+            onClick={() => sendOTP(formData?.phone || '')}
             disabled={resendCooldown > 0 || isSendingOTP}
           >
             {resendCooldown > 0
@@ -724,7 +662,6 @@ export default function RegistrationForm({
   return (
     <div className="mx-auto w-full max-w-md p-6">
       {renderStepIndicator()}
-
       <Card className="border-blue-100 shadow-lg">
         <div className="p-8">
           {currentStep === 1 && renderPersonalDetailsForm()}
