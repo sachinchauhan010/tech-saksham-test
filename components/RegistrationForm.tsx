@@ -236,7 +236,7 @@ export default function RegistrationForm({
       }
 
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
-      toast.success(data.message || 'OTP sent successfully');
+      toast.success('OTP sent successfully');
 
       if (process.env.NODE_ENV !== 'production' && data.otp) {
         toast.info(`Dev OTP: ${data.otp}`);
@@ -316,7 +316,7 @@ export default function RegistrationForm({
       const verifyData = await res.json();
 
       if (!verifyData.success) {
-        throw new Error(verifyData.error || 'OTP verification failed');
+        throw new Error(verifyData.message || 'OTP verification failed');
       }
 
       // 2. Register new user or link existing user to the event
