@@ -296,13 +296,26 @@ export default function RegistrationForm({
     setIsVerifyingOTP(true);
 
     try {
-      const { data: verifyData } = await apiClient.post('/api/verify-otp', {
-        email: formData.email,
-        otp: values.otp,
-        OtpType: OTP_TYPE.PHONE_NUMBER_VERIFICATION,
-        preExistingUser: isUserExist,
-        isForLogin: false,
-      });
+      // const { data: verifyData } = await apiClient.post('/api/verify-otp', {
+      //   email: formData.email,
+      //   otp: values.otp,
+      //   OtpType: OTP_TYPE.PHONE_NUMBER_VERIFICATION,
+      //   preExistingUser: isUserExist,
+      //   isForLogin: false,
+      // });
+
+      const response = await fetch('https://nicsi.nic.in/nicsi/notification/verify-otp',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+        },
+        body:JSON.stringify({
+          "mobile": 6393990647,
+          "otp": values.otp,
+        })
+      })
+
+      const verifyData = await response.json()
 
       if (!verifyData.success) {
         throw new Error(verifyData.error || 'OTP verification failed');
