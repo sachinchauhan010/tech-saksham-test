@@ -132,7 +132,7 @@ export default function UserLoginPage() {
 
   const checkUserExists = async (mobile: string): Promise<boolean> => {
     try {
-      const { data } = await apiClient.post('/check-user-exist', { mobile });
+      const { data } = await apiClient.post('/api/check-user-exist', { mobile });
       return data.success === true;
     } catch {
       return false;
@@ -206,7 +206,7 @@ export default function UserLoginPage() {
 
   const saveToken = async (mobile: string): Promise<boolean> => {
     try {
-      const { data } = await apiClient.post('/save-token', { mobile });
+      const { data } = await apiClient.post('/api/save-token', { mobile });
       return data.success === true;
     } catch {
       return false;
