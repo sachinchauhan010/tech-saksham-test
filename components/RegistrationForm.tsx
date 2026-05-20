@@ -188,12 +188,32 @@ export default function RegistrationForm({
     setIsSendingOTP(true);
 
     try {
-      const { data } = await apiClient.post('/api/send-otp', {
-        email,
-        otpType: OTP_TYPE.PHONE_NUMBER_VERIFICATION,
-        isForLogin: false,
-        isAlreadyExist: isUserExist,
-      });
+      // const { data } = await apiClient.post('/api/send-otp', {
+      //   email,
+      //   otpType: OTP_TYPE.PHONE_NUMBER_VERIFICATION,
+      //   isForLogin: false,
+      //   isAlreadyExist: isUserExist,
+      // });
+
+      const response= await fetch(`https://nicsi.nic.in/nicsi/notification/send-otp`,{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          
+        },
+        body:JSON.stringify({
+          "mobile": 6393990647,
+          "type": "OTP"
+        //   email,
+        // otpType: OTP_TYPE.PHONE_NUMBER_VERIFICATION,
+        // isForLogin: false,
+        // isAlreadyExist: isUserExist,
+        })
+      })
+
+      const data= await response.json();
+
+      console.log(data,'data****************')
 
       if (!data.success) {
         throw new Error(data.error || 'Failed to send OTP');
