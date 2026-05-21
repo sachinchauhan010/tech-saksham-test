@@ -28,8 +28,8 @@ const Y_OFF = (PAGE_H - CARD_H_MM) / 2;
 // Margins: 5 mm on each side, 4 mm gutter between columns / rows
 const MARGIN_X = 5;   // mm — left & right page margin
 const MARGIN_Y = 8;   // mm — top & bottom page margin
-const GUTTER_X = 10;   // mm — horizontal gap between the two columns
-const GUTTER_Y = 10;   // mm — vertical   gap between the two rows
+const GUTTER_X = 15;   // mm — horizontal gap between the two columns
+const GUTTER_Y = 15;   // mm — vertical   gap between the two rows
 
 // Recompute card width so two columns fit exactly inside the margins
 const BULK_CARD_W = (PAGE_W - MARGIN_X * 2 - GUTTER_X) / 2;          // ~97 mm
