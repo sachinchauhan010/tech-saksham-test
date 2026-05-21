@@ -17,27 +17,25 @@ import { IUser, IEvent } from '@/types/interface';
 // ── PDF layout ────────────────────────────────────────────────────────────────
 const PAGE_W = 210;   // A4 width  (mm)
 const PAGE_H = 297;   // A4 height (mm)
-const CARD_W_MM = 88;    // card width  — slightly wider so 2 fit with margins
-const CARD_H_MM = CARD_W_MM * (538 / 340); // ~139.3 mm — preserves aspect ratio
+const CARD_W_MM = 88;
+const CARD_H_MM = CARD_W_MM * (538 / 340);
 
 // Single-card centre position
 const X_OFF = (PAGE_W - CARD_W_MM) / 2;
 const Y_OFF = (PAGE_H - CARD_H_MM) / 2;
 
 // 2×2 grid positions (4 cards per A4 page) ──────────────────────────────────
-// Margins: 5 mm on each side, 4 mm gutter between columns / rows
-const MARGIN_X = 5;   // mm — left & right page margin
-const MARGIN_Y = 8;   // mm — top & bottom page margin
-const GUTTER_X = 6;   // mm — horizontal gap between the two columns
-const GUTTER_Y = 6;   // mm — vertical   gap between the two rows
+const MARGIN_X = 12;  // mm — left & right page margin (increased from 5)
+const MARGIN_Y = 14;  // mm — top & bottom page margin (increased from 8)
+const GUTTER_X = 10;  // mm — horizontal gap between columns (increased from 6)
+const GUTTER_Y = 10;  // mm — vertical gap between rows (increased from 6)
 
-// Recompute card width so two columns fit exactly inside the margins
-const BULK_CARD_W = (PAGE_W - MARGIN_X * 2 - GUTTER_X) / 2;          // ~97 mm
-const BULK_CARD_H = BULK_CARD_W * (538 / 340);                         // ~153 mm — too tall for 2 rows
-// If 2 rows of BULK_CARD_H don't fit, shrink to fit height instead
-const MAX_CARD_H = (PAGE_H - MARGIN_Y * 2 - GUTTER_Y) / 2;           // ~(297-16-6)/2 = 137.5 mm
+// Recompute card dimensions to fit within margins
+const BULK_CARD_W = (PAGE_W - MARGIN_X * 2 - GUTTER_X) / 2;
+const BULK_CARD_H = BULK_CARD_W * (538 / 340);
+const MAX_CARD_H = (PAGE_H - MARGIN_Y * 2 - GUTTER_Y) / 2;
 const FINAL_CARD_H = Math.min(BULK_CARD_H, MAX_CARD_H);
-const FINAL_CARD_W = FINAL_CARD_H * (340 / 538);                       // keep aspect ratio
+const FINAL_CARD_W = FINAL_CARD_H * (340 / 538);
 
 // Build the 4 corner positions (col 0/1, row 0/1)
 const GRID_POSITIONS = [0, 1].flatMap(row =>
@@ -45,19 +43,17 @@ const GRID_POSITIONS = [0, 1].flatMap(row =>
     x: MARGIN_X + col * (FINAL_CARD_W + GUTTER_X),
     y: MARGIN_Y + row * (FINAL_CARD_H + GUTTER_Y),
   }))
-); // [{col0,row0}, {col1,row0}, {col0,row1}, {col1,row1}]
-
+);
 
 /**
  * Capture a card element as a compressed JPEG data URL.
- * Two passes: first warms up fonts/images, second is the real capture.
  */
 async function captureCard(element: HTMLElement, pixelRatio = 2): Promise<string> {
   const opts = {
     width: 340,
     height: 538,
     pixelRatio,
-    quality: 0.88,          // JPEG quality 0–1  (0.88 ≈ excellent/print-ready)
+    quality: 0.88,
     backgroundColor: '#ffffff',
     skipFonts: false,
   };
@@ -139,23 +135,19 @@ export default function AdminIDCardsPage() {
       .map((a: any) => activeEvents.find((ae) => ae.eventCode === a.eventCode))
       .filter((e): e is IEvent => !!e);
 
-  // ── Get the rendered DOM element for a user's card ────────────────────────
   const getCardElement = (userId: string): HTMLElement | null =>
     document.getElementById(`id-card-${userId}`);
 
-  // ── Single PDF: one card centred on an A4 page (JPEG, compressed) ──────────
+  // ── Single PDF ────────────────────────────────────────────────────────────
   const downloadSingleAsPDF = async (u: IUser, evt: IEvent) => {
     const el = getCardElement(`${u._id}-${evt.eventCode}`);
     if (!el) { toast.error('Card element not found'); return; }
 
     setDownloadingId(`${u._id}-${evt.eventCode}`);
     try {
-      // pixelRatio: 2 → good quality, much smaller than 3×
       const imgData = await captureCard(el, 2);
-
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
       pdf.addImage(imgData, 'JPEG', X_OFF, Y_OFF, CARD_W_MM, CARD_H_MM, undefined, 'FAST');
-
       pdf.save(`id-card-${u.name.replace(/\s+/g, '-').toLowerCase()}-${u.userId}-${evt.eventCode}.pdf`);
       toast.success(`Downloaded ID card for ${u.name} (${evt.eventCode})`);
     } catch (err) {
@@ -166,13 +158,13 @@ export default function AdminIDCardsPage() {
     }
   };
 
-  // ── Bulk PDF: 4 cards per A4 page (2×2 grid), JPEG compressed ───────────
+  // ── Bulk PDF: 4 cards per A4 page (2×2 grid) ─────────────────────────────
   const downloadAllAsPDF = async () => {
     if (users.length === 0) { toast.error('No ID cards to download'); return; }
     setDownloadingAll(true);
 
     try {
-      const allCardsToDownload = users.flatMap(u => 
+      const allCardsToDownload = users.flatMap(u =>
         resolveEventsForUser(u).map(evt => ({ user: u, evt, id: `${u._id}-${evt.eventCode}` }))
       );
 
@@ -188,17 +180,15 @@ export default function AdminIDCardsPage() {
       for (let i = 0; i < allCardsToDownload.length; i++) {
         const { user: u, id } = allCardsToDownload[i];
         const el = getCardElement(id);
-        const pos = GRID_POSITIONS[i % 4];          // 0-3 slot on current page
+        const pos = GRID_POSITIONS[i % 4];
 
         if (!el) {
           console.warn(`Card element not found for ${u.name}, skipping`);
           continue;
         }
 
-        // New page every 4 cards (not on the very first card)
         if (i > 0 && i % 4 === 0) pdf.addPage();
 
-        // Capture at pixelRatio 1.5 for bulk — fast + small enough for 4 per page
         const imgData = await captureCard(el, 1.5);
         pdf.addImage(imgData, 'JPEG', pos.x, pos.y, FINAL_CARD_W, FINAL_CARD_H, undefined, 'FAST');
       }
@@ -300,24 +290,18 @@ export default function AdminIDCardsPage() {
         <div className="grid grid-cols-1 gap-10 md:grid-cols-1 lg:grid-cols-2 2xl:grid-cols-2">
           {users.flatMap((u) => {
             const userEvents = resolveEventsForUser(u);
-            
+
             return userEvents.map((evt) => {
               const uniqueId = `${u._id}-${evt.eventCode}`;
-              
+
               return (
                 <div key={uniqueId} className="flex flex-col justify-between items-center gap-3">
-                  {/*
-                    IMPORTANT: The id here is what captureCard() looks up.
-                    The div must be exactly 340×538 with no extra wrapper clipping.
-                    overflow-hidden on a parent will break the capture — keep it visible.
-                  */}
                   <div
                     id={`id-card-${uniqueId}`}
                     style={{
                       width: '340px',
                       height: '538px',
                       flexShrink: 0,
-                      // Isolate the element so toPng captures only this card
                       position: 'relative',
                       overflow: 'hidden',
                       borderRadius: '20px',
