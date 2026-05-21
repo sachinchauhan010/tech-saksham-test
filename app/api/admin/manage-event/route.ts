@@ -1,5 +1,5 @@
 import { EventModel } from "@/lib/models/Event";
-import { User } from "@/lib/models/User";
+import "@/lib/models/User";
 import { connectDB } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { validateFields } from "@/lib/validations";
