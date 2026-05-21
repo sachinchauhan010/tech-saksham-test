@@ -29,6 +29,7 @@ interface EventFormData {
   shortDescription: string
   category: string
   bannerImage: string
+  stateLogo: string
   gallery: string[]
   startDate: string
   endDate: string
@@ -50,6 +51,9 @@ interface EventFormData {
   isIdCardIssue?: boolean
   isCertificateIssue?: boolean
   certificateTemplate: string
+  delegateIdCard?: string
+  guestIdCard?: string
+  organizerIdCard?: string
 }
 
 interface EventFormProps {
@@ -157,6 +161,9 @@ export default function EventForm({ event, onSubmit, onCancel, isLoading = false
       isIdCardIssue: event?.isIdCardIssue || false,
       isCertificateIssue: event?.isCertificateIssue || false,
       certificateTemplate: event?.certificateTemplate || '',
+      delegateIdCard: event?.delegateIdCard || '',
+      guestIdCard: event?.guestIdCard || '',
+      organizerIdCard: event?.organizerIdCard || '',
     },
   })
 
@@ -251,6 +258,9 @@ export default function EventForm({ event, onSubmit, onCancel, isLoading = false
       isIdCardIssue: data.isIdCardIssue,
       isCertificateIssue: data.isCertificateIssue,
       certificateTemplate: data.certificateTemplate || '',
+      delegateIdCard: data.delegateIdCard || '',
+      guestIdCard: data.guestIdCard || '',
+      organizerIdCard: data.organizerIdCard || '',
     }
     onSubmit(finalData)
   }
@@ -349,6 +359,18 @@ export default function EventForm({ event, onSubmit, onCancel, isLoading = false
               {errors.bannerImage && <ErrorMsg>{errors.bannerImage.message}</ErrorMsg>}
             </div>
             <div className="space-y-2">
+              <label className={labelStyles}>State Logo <Required /></label>
+              <input type="hidden" {...register('stateLogo', { required: 'State Logo is required' })} />
+              <div className="rounded-2xl border-2 border-dashed border-slate-200 hover:border-indigo-300 bg-slate-50 hover:bg-indigo-50/30 transition-all duration-200 overflow-hidden p-3">
+                <ImageUploadWidget
+                  value={watch('stateLogo')}
+                  onChange={(url) => setValue('stateLogo', url, { shouldValidate: true })}
+                  onRemove={() => setValue('stateLogo', '', { shouldValidate: true })}
+                />
+              </div>
+              {errors.stateLogo && <ErrorMsg>{errors.stateLogo.message}</ErrorMsg>}
+            </div>
+            <div className="space-y-2">
               <label className={labelStyles}>Certificate Template <Required /></label>
               <input type="hidden" {...register('certificateTemplate', { required: 'Certificate template is required' })} />
               <div className="rounded-2xl border-2 border-dashed border-slate-200 hover:border-violet-300 bg-slate-50 hover:bg-violet-50/30 transition-all duration-200 overflow-hidden p-3">
@@ -359,6 +381,39 @@ export default function EventForm({ event, onSubmit, onCancel, isLoading = false
                 />
               </div>
               {errors.certificateTemplate && <ErrorMsg>{errors.certificateTemplate.message}</ErrorMsg>}
+            </div>
+            <div className="space-y-2">
+              <label className={labelStyles}>Delegate ID Card Template</label>
+              <input type="hidden" {...register('delegateIdCard')} />
+              <div className="rounded-2xl border-2 border-dashed border-slate-200 hover:border-indigo-300 bg-slate-50 hover:bg-indigo-50/30 transition-all duration-200 overflow-hidden p-3">
+                <ImageUploadWidget
+                  value={watch('delegateIdCard')}
+                  onChange={(url) => setValue('delegateIdCard', url, { shouldValidate: true })}
+                  onRemove={() => setValue('delegateIdCard', '', { shouldValidate: true })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className={labelStyles}>Guest ID Card Template</label>
+              <input type="hidden" {...register('guestIdCard')} />
+              <div className="rounded-2xl border-2 border-dashed border-slate-200 hover:border-indigo-300 bg-slate-50 hover:bg-indigo-50/30 transition-all duration-200 overflow-hidden p-3">
+                <ImageUploadWidget
+                  value={watch('guestIdCard')}
+                  onChange={(url) => setValue('guestIdCard', url, { shouldValidate: true })}
+                  onRemove={() => setValue('guestIdCard', '', { shouldValidate: true })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className={labelStyles}>Organizer ID Card Template</label>
+              <input type="hidden" {...register('organizerIdCard')} />
+              <div className="rounded-2xl border-2 border-dashed border-slate-200 hover:border-indigo-300 bg-slate-50 hover:bg-indigo-50/30 transition-all duration-200 overflow-hidden p-3">
+                <ImageUploadWidget
+                  value={watch('organizerIdCard')}
+                  onChange={(url) => setValue('organizerIdCard', url, { shouldValidate: true })}
+                  onRemove={() => setValue('organizerIdCard', '', { shouldValidate: true })}
+                />
+              </div>
             </div>
           </div>
 

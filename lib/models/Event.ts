@@ -15,6 +15,7 @@ const eventSchema = new Schema<IEvent>({
   },
   
   bannerImage: { type: String, required: true },
+  stateLogo: { type: String },
   gallery: [{ type: String }],
 
   startDate: { type: Date, required: true },
@@ -69,7 +70,10 @@ const eventSchema = new Schema<IEvent>({
   isFeatured: { type: Boolean, default: false },
   isIdCardIssue: { type: Boolean, default: false },
   isCertificateIssue: { type: Boolean, default: false },
-  certificateTemplate: { type: String, required: true }
+  certificateTemplate: { type: String, required: true },
+  delegateIdCard: { type: String },
+  guestIdCard: { type: String },
+  organizerIdCard: { type: String }
 }, { 
   timestamps: true 
 });

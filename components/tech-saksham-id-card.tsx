@@ -41,13 +41,19 @@ export function TechSakshamIDCard({ user, appliedEvent }: TechSakshamIDCardProps
     }
   };
 
+  const bgImage = user.role === ROLE.GUEST
+    ? (appliedEvent?.guestIdCard || '/tech-saksham-guest-id-card.png')
+    : user.role === ROLE.ORGANIZER
+    ? (appliedEvent?.organizerIdCard || '/tech-saksham-org-id-card.png')
+    : (appliedEvent?.delegateIdCard || '/tech-saksham-id-card.png');
+
   return (
     <div
       className="relative w-[340px] h-[538px] overflow-hidden rounded-[20px] bg-white shadow-[0_20px_60px_rgba(60,70,160,0.35),0_4px_16px_rgba(0,0,0,0.18)]"
       aria-label={`ID card ${user.name}`}
     >
       <Image
-        src={`${user.role === ROLE.GUEST ? '/tech-saksham-guest-id-card.png' : user.role === ROLE.ORGANIZER ? '/tech-saksham-org-id-card.png' : '/tech-saksham-id-card.png'}`}
+        src={bgImage}
         alt="ID Card Background"
         fill
         priority
@@ -57,7 +63,7 @@ export function TechSakshamIDCard({ user, appliedEvent }: TechSakshamIDCardProps
 
 
       <div className="absolute inset-0 z-10 pointer-events-none flex flex-col items-center justify-center ">
-        <div className="text-center max-w-[280px] mx-auto">
+        <div className="text-center max-w-[280px] mx-auto opacity-0 pointer-events-none">
           <div className="text-gray-50 font-medium break-words text-[14px]">
             {appliedEvent?.sessions?.map((session, index) => (
               <span key={index}>
@@ -67,7 +73,7 @@ export function TechSakshamIDCard({ user, appliedEvent }: TechSakshamIDCardProps
             ))}
           </div>
         </div>
-        <div className="text-[10px] text-center text-white flex flex-col items-center justify-center gap-0.5">
+        <div className="text-[10px] text-center text-white flex flex-col items-center justify-center gap-0.5 opacity-0 pointer-events-none">
           <div className='flex justify-center items-center'>
             <div className='flex items-center justify-center gap-0.5'>
               <Calendar size={10} />

@@ -78,6 +78,7 @@ export interface IEvent {
   shortDescription: string;
   category: string;
   bannerImage: string;
+  stateLogo: string;
   gallery: string[];
   startDate: Date;
   endDate: Date;
@@ -100,4 +101,7 @@ export interface IEvent {
   isIdCardIssue?: boolean;
   isCertificateIssue?: boolean;
   certificateTemplate: string;
+  delegateIdCard?: string;
+  guestIdCard?: string;
+  organizerIdCard?: string;
 }
