@@ -62,7 +62,10 @@ export async function POST(request: Request) {
       isFeatured,
       isIdCardIssue,
       isCertificateIssue,
-      certificateTemplate
+      certificateTemplate,
+      delegateIdCard,
+      guestIdCard,
+      organizerIdCard
     } = await request.json();
 
     const validation = validateFields({
@@ -110,10 +113,20 @@ export async function POST(request: Request) {
       isFeatured,
       isIdCardIssue,
       isCertificateIssue,
-      certificateTemplate
+      certificateTemplate,
+      delegateIdCard,
+      guestIdCard,
+      organizerIdCard
     });
 
     const savedEvent = await event.save();
+
+    if(!savedEvent) {
+      return NextResponse.json({
+        success: false,
+        message: "Failed to create event"
+      }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
