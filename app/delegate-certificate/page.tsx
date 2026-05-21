@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useAppSelector } from "@/redux/hooks";
 import apiClient from "@/lib/api-client";
 import { IEvent } from "@/types/interface";
-import { Calendar, Download, Lock } from "lucide-react"; // Optional: adding icons for flair
+import { Calendar, Download, Lock } from "lucide-react";
 import ComponentWrapper from "@/components/ComponentWrapper";
 
 export default function CertificatePage() {
@@ -46,14 +46,22 @@ export default function CertificatePage() {
         format: 'a4',
       });
 
+      // Load the original image
       const img = new Image();
       img.src = '/tech-saksham-certificate.png';
+      await new Promise((resolve) => { img.onload = resolve; });
 
-      await new Promise((resolve) => {
-        img.onload = resolve;
-      });
+      // Draw onto a canvas at 150dpi equivalent — compresses from full resolution
+      const canvas = document.createElement('canvas');
+      canvas.width = 1754;  // A4 landscape at 150dpi
+      canvas.height = 1240;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-      pdf.addImage(img, 'PNG', 0, 0, 297, 210);
+      // Export as JPEG at 0.82 quality — biggest size reduction
+      const compressedImg = canvas.toDataURL('image/jpeg', 0.82);
+
+      pdf.addImage(compressedImg, 'JPEG', 0, 0, 297, 210);
       pdf.setFont('Times', 'Bold');
       pdf.setFontSize(16);
       pdf.setTextColor(30, 46, 122);
@@ -61,9 +69,7 @@ export default function CertificatePage() {
       const splitName = pdf.splitTextToSize(user.name, 180);
       pdf.text(splitName, 148.5, 116, { align: 'center' });
 
-      const safeName = user.name.replace(/\s+/g, '-').toLowerCase();
       pdf.save(`${eventName.replace(/\s+/g, '-')}-certificate.pdf`);
-
       toast.success('Certificate downloaded successfully');
     } catch (error) {
       console.error(error);
@@ -82,7 +88,7 @@ export default function CertificatePage() {
     } catch (error) {
       console.error('Error fetching applied events:', error);
     }
-  }
+  };
 
   useEffect(() => {
     fetchAppliedEvent();
@@ -108,7 +114,6 @@ export default function CertificatePage() {
 
   return (
     <ComponentWrapper>
-
       <div className="min-h-screen bg-slate-50/50 py-12 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto">
           <header className="mb-10 text-center">
@@ -143,7 +148,6 @@ export default function CertificatePage() {
                       <div className="flex flex-wrap gap-y-2 gap-x-6 text-sm text-slate-500">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4 text-blue-500" />
-                          {/* Assuming date exists on event object */}
                           {event.startDate ? new Date(event.startDate).toLocaleDateString('en-IN', {
                             day: 'numeric',
                             month: 'long',
@@ -195,7 +199,6 @@ export default function CertificatePage() {
           </div>
         </div>
       </div>
-
     </ComponentWrapper>
   );
 }
