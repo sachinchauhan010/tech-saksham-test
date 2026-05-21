@@ -119,7 +119,7 @@ export function TechSakshamIDCard({ user, appliedEvent }: TechSakshamIDCardProps
         </div>
 
         <div
-          className="absolute left-1/2 -translate-x-1/2 bottom-[67px] flex items-center justify-center w-[76px] h-[76px] rounded-[10px] bg-white shadow-[0_6px_18px_rgba(30,46,122,0.12)] pointer-events-auto"
+          className="absolute left-1/2 -translate-x-1/2 bottom-[72px] flex items-center justify-center w-[76px] h-[76px] rounded-[10px] bg-white shadow-[0_6px_18px_rgba(30,46,122,0.12)] pointer-events-auto"
           aria-label="Dynamic QR code"
         >
           {qrLoading ? (
