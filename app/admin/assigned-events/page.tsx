@@ -8,13 +8,14 @@ import apiClient from '@/lib/api-client';
 import { IEvent } from '@/types/interface';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Eye, CalendarDays, MapPin, Hash, ShieldCheck, Ticket } from 'lucide-react';
+import { Eye, CalendarDays, MapPin, Hash, ShieldCheck, Ticket, QrCode } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export default function AssignEventsPage() {
 	const [events, setEvents] = useState<IEvent[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [updatingEvent, setUpdatingEvent] = useState<string | null>(null);
+	const [downloadingQR, setDownloadingQR] = useState<string | null>(null);
 
 	useEffect(() => {
 		fetchAssignedEvents();
@@ -37,6 +38,29 @@ export default function AssignEventsPage() {
 		}
 	};
 
+	const handleDownloadQR = async (eventId: string, eventCode: string) => {
+		setDownloadingQR(eventId);
+		try {
+			const response = await apiClient.get(
+				`/api/admin/manage-event/${eventId}/registration-qr`,
+				{ responseType: 'blob' }
+			);
+
+			const url = window.URL.createObjectURL(new Blob([response.data], { type: 'image/png' }));
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = `${eventCode || 'event'}-registration-qr.png`;
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			window.URL.revokeObjectURL(url);
+		} catch (error) {
+			toast.error('Failed to download QR code');
+		} finally {
+			setDownloadingQR(null);
+		}
+	};
+
 	const handleToggleSetting = async (eventId: string, field: 'isIdCardIssue' | 'isCertificateIssue', value: boolean) => {
 		setUpdatingEvent(eventId);
 		try {
@@ -47,7 +71,6 @@ export default function AssignEventsPage() {
 			const { data } = await apiClient.post(endpoint);
 
 			if (data.success) {
-				// Update the event in local state - the API toggles the value, so we set it to the opposite
 				setEvents(prevEvents =>
 					prevEvents.map(event =>
 						event._id === eventId ? { ...event, [field]: !event[field] } : event
@@ -116,6 +139,24 @@ export default function AssignEventsPage() {
 												</div>
 											</div>
 										</div>
+										<Button
+											onClick={() => event._id && handleDownloadQR(event._id, event.eventCode || '')}
+											disabled={downloadingQR === event._id}
+											variant="outline"
+											className="border-blue-200 text-[#0f5fc3] hover:bg-blue-50 hover:text-[#0d4fa3] transition-colors"
+										>
+											{downloadingQR === event._id ? (
+												<>
+													<div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-[#0f5fc3] border-t-transparent" />
+													Downloading...
+												</>
+											) : (
+												<>
+													<QrCode className="mr-2 h-4 w-4" />
+													Download Registration QR
+												</>
+											)}
+										</Button>
 									</div>
 
 									{/* Toggles & Actions */}
@@ -160,8 +201,7 @@ export default function AssignEventsPage() {
 											</div>
 										</div>
 
-
-										<div className='flex justify-center itenms-center gap-10'>
+										<div className='flex justify-center items-center gap-10'>
 											<Link href={`/admin/assigned-events/${event._id}/register-participants`} className="w-full">
 												<Button variant="outline" className="w-full border-blue-200 text-[#0f5fc3] hover:bg-blue-50 hover:text-[#0d4fa3] transition-colors">
 													<Eye className="mr-2 h-4 w-4" />
