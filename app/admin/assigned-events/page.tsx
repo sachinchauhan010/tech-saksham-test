@@ -42,7 +42,7 @@ export default function AssignEventsPage() {
 		setDownloadingQR(eventId);
 		try {
 			const response = await apiClient.get(
-				`/api/admin/manage-event/${eventId}/registration-qrcode`,
+				`/api/admin/assigned-event/${eventId}/registration-qrcode`,
 				{ responseType: 'blob' }
 			);
 
